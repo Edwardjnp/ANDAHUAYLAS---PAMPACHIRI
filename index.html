@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Croquis: Andahuaylas → Pampachiri</title>
+
+<!-- Leaflet + Leaflet Routing Machine -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+<style>
+  * { box-sizing: border-box; margin:0; padding:0; }
+body {
+  background: url('https://as1.ftcdn.net/v2/jpg/00/90/08/08/1000_F_90080849_C5UPAYmLWchzQPLwSTcQ1jfE0P2OVfJX.jpg') no-repeat center center fixed;
+  background-size: cover;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  font-family: 'Quicksand', sans-serif;
+  margin: 0;
+  padding: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.container {
+  width: 95%;
+  max-width: 1600px;
+  background: rgba(245, 235, 220, 0.88); /* beige cálido translúcido */
+  backdrop-filter: blur(4px);
+  border-radius: 25px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  overflow: hidden;
+  transition: 0.3s ease-in-out;
+}
+
+.container:hover {
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+}
+
+  header {
+    background: linear-gradient(135deg,#be9c2e 0%,#936d0b 100%);
+    color: #fff;
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: bold;
+    text-align: center;
+  }
+  header h1 { font-size: 1.9rem; margin-bottom:6px; }
+  header p { opacity:0.95; margin:0; font-size:0.95rem; }
+
+  .map-area {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 0;
+    height: 720px;
+  }
+
+  .sidebar {
+    padding: 20px;
+    background: #f8f9fa;
+    border-right: 2px solid #e9e9e9;
+    overflow-y: auto;
+  }
+
+  .sidebar h2 { color:#333; margin-bottom:12px; font-size:1.15rem; }
+  .controls { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+  .btn {
+    background: linear-gradient(135deg,#455dc8,#c29626);
+    color: #fff; border: none; padding: 12px 14px; border-radius:10px;
+    font-weight:700; cursor:pointer;
+  }
+  .btn:disabled { opacity:0.55; cursor: not-allowed; transform:none; }
+
+  .info-card {
+    background:#fff; padding:12px; border-radius:10px; box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+    margin-bottom:12px;
+  }
+
+  .location-list { list-style:none; padding:0; margin:0; }
+  .location-item {
+    display:block; background:#fff; margin-bottom:10px; padding:12px; border-radius:10px;
+    border-left:4px solid #be9c2e; cursor:pointer; transition: transform .18s ease, box-shadow .18s;
+  }
+  .location-item:hover { transform: translateX(6px); box-shadow: 0 6px 18px rgba(102,126,234,0.12); }
+  .location-item.active { background: #f1f6ff; border-left-color: #455dc8; }
+
+  .location-number {
+    display:inline-block; width:30px; height:30px; border-radius:50%;
+    background: linear-gradient(135deg,#667eea,#be9c2e); color:white; text-align:center;
+    line-height:30px; font-weight:800; margin-right:10px;
+  }
+
+  #map { width:100%; height:80vh; margin-top: 20px; overflow: hidden; display: block; }
+
+  /* popup styling */
+  .leaflet-popup-content img { width:100%; height:160px; object-fit:cover; border-radius:8px 8px 0 0; display:block; margin-bottom:8px; }
+  .popup-content { padding:8px 6px; }
+  .popup-title { font-weight:700; color:#2f53b7; margin-bottom:6px; }
+  .popup-desc { color:#444; font-size:0.95rem; margin-bottom:6px; }
+  .popup-alt { background:#f3f6ff; padding:6px; border-radius:6px; text-align:center; font-weight:700; }
+
+  @media (max-width: 1000px) {
+    .map-area { grid-template-columns: 1fr; height: calc(100vh - 120px); }
+    .sidebar { border-right: none; border-bottom: 2px solid #e9e9e9; }
+  }
+
+  /* --- Carrusel simple en los popups --- */
+.carousel {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.carousel img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: none;
+}
+
+.carousel img.active {
+  display: block;
+}
+
+.carousel .prev, .carousel .next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.4);
+  color: #fff;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.carousel .prev { left: 6px; }
+.carousel .next { right: 6px; }
+
+/* ===== Ajustes para móviles ===== */
+@media (max-width: 768px) {
+
+  body {
+    padding: 10px;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .container {
+    width: 100%;
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  header {
+    border-radius: 12px;
+    padding: 0.8rem;
+  }
+  header h1 {
+    font-size: 1.3rem;
+    line-height: 1.4;
+  }
+  header p {
+    font-size: 0.85rem;
+  }
+
+  .map-area {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 2px solid #e9e9e9;
+    max-height: 45vh;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  #map {
+    height: 55vh !important;
+    margin-top: 10px;
+    border-radius: 12px;
+  }
+
+  .btn {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+
+  .location-item {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+
+  .location-number {
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    font-size: 0.85rem;
+  }
+
+  .popup-content {
+    font-size: 0.88rem;
+  }
+
+  .carousel {
+    height: 140px;
+  }
+
+  .carousel img {
+    height: 140px;
+  }
+
+  .carousel .prev,
+  .carousel .next {
+    padding: 2px 8px;
+    font-size: 14px;
+  }
+}
+
+  @keyframes bounce { from { transform: translateY(0);} to { transform: translateY(-6px);} }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Croquis: Andahuaylas → Pampachiri</h1>
+      <p>Ruta por carreteras — paradas — destinos turísticos al llegar a Pampachiri</p>
+    </header>
+
+    <div class="map-area">
+      <aside class="sidebar">
+        <h2>Itinerario</h2>
+
+        <div class="info-card">
+          <div style="margin-bottom:8px;"><strong>Instrucciones rápidas</strong></div>
+          <div style="font-size:0.92rem;color:#555;">
+            Pulsa <strong>Iniciar recorrido</strong>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="startBtn" class="btn">▶️ Iniciar recorrido</button>
+          <button id="stopBtn" class="btn" disabled>⏸️ Detener</button>
+        </div>
+
+        <div class="info-card" style="margin-bottom:10px;">
+          <strong>Paradas principales</strong>
+        </div>
+
+        <ul class="location-list" id="locationList"></ul>
+
+        <div class="info-card" style="margin-top:12px;">
+          <strong>Lugares turísticos (Pampachiri)</strong>
+          <ul style="margin-top:8px;font-size:0.95rem;color:#444;">
+            <li>• Baños Termales de Larcay</li>
+            <li>• Centro arqueologico Chicha Qasa</li>
+            <li>• Aldea de los Pitufos</li>
+            <li>• Bosque de Piedras</li>
+          </ul>
+        </div>
+      </aside>
+
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+
+  <script>
+  // -----------------------------
+  // === CONFIG (tú puedes editar)
+  // -----------------------------
+  // Paradas principales (en el orden deseado). Coordenadas tomadas según tu ruta de Google Maps.
+  const locations = [
+    { img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSjRLQUbWC6DiUtUPbMiFTuFkX4jCE-psY4RXcB1ITwClFoseUxm31Dwp8JzdRa8kBanM&usqp=CAU",name: "Parque Lampa de Oro (Andahuaylas)", coords: [-13.6562327, -73.3838969], altitude: "2926 msnm", desc: "Ubicado en el corazón de Andahuaylas, el Parque Lampa de Oro es un punto de encuentro emblemático rodeado de historia y tradición. Desde aquí inicia nuestra travesía rumbo a los Andes apurimeños, siendo el punto de partida del viaje de estudios." },
+    { img: "https://i.imgur.com/XBCeMmo.jpg", name: "Pumabachu", coords: [-13.673952, -73.360761], altitude: "≈2880 msnm", desc: "Zona periurbana que marca la salida del casco urbano de Andahuaylas. Desde Pumabachu se observan los primeros paisajes rurales y los campos de cultivo que caracterizan el valle, además del contraste entre la ciudad y la campiña." },
+    { img: "https://energiminas.com/wp-content/uploads/2023/12/standard_877785-mtc-5-1.jpg", name: "Aeropuerto de Andahuaylas (Huinchos)", coords: [-13.712943, -73.350654], altitude: "≈3440 msnm", desc: "Principal terminal aéreo de la provincia. Su entorno ofrece amplias vistas del valle y muestra el equilibrio entre la modernidad del transporte y la tranquilidad de la zona rural." },
+    { img: "https://i.imgur.com/Nyqs29H.jpg", name: "Huancabamba", coords: [-13.733907, -73.348514], altitude: "≈3050 msnm", desc: "Pequeño poblado agrícola conocido por sus chacras llenas de la preparación de chuño. Su ambiente apacible y la cordialidad de sus habitantes reflejan la esencia de los pueblos andinos y su estrecha relación con la tierra." },
+    { img: "https://i.imgur.com/JLnuFbK.jpg", name: "Checche", coords: [-13.773150, -73.358007], altitude: "≈3120 msnm", desc: "Comunidad campesina rodeada de montañas y quebradas. Es reconocida por sus tradiciones agrícolas y su cercanía a antiguos caminos de herradura que conectaban los pueblos del valle de Andahuaylas." },
+    { img: "https://i.imgur.com/x8DEIOG.jpg", name: "Centro Poblado de Huaraccopata", coords: [-13.794276, -73.368599], altitude: "≈3280 msnm", desc: "Un pequeño centro poblado que combina viviendas tradicionales con amplias vistas hacia las laderas andinas. Es punto de paso frecuente para quienes se dirigen hacia Checche o Pampachiri, con una vista panorámica." },
+    { img: "https://i.imgur.com/GA5zbaI.jpg", name: "Centro Poblado Santa Rosa", coords: [-13.805787, -73.374101], altitude: "3230 msnm", desc: "Localidad rural donde predominan los cultivos de maiz. Sus paisajes con una cercania a un rio, un calor comunal por sus pobladores."},
+    { img: "https://i.imgur.com/3uM3FoH.jpg", name: "Centro Poblado Cceñuaran", coords: [-13.803601, -73.393018], altitude: "3660 msnm", desc: "Asentamiento serrano rodeado de colinas y eucaliptos. Desde aquí se pueden divisar panorámicas del valle y las primeras formaciones rocosas que anuncian el cambio del paisaje hacia la puna."},
+    { img: "https://i.imgur.com/QUcBA6u.jpg", name: "Centro Poblado Chasquitambo", coords: [-13.812604, -73.382569], altitude: "3778 msnm", desc: "Su nombre evoca a los antiguos “chasquis” del imperio incaico. Se considera un punto de paso entre comunidades vecinas y vistas del inicio de formaciones rocosas y la puna."},
+    { img: "https://i.imgur.com/hUSih50.jpg", name: "ABRA ALALAYA", coords: [-13.877183, -73.407587], altitude: "4348 msnm", desc: "El Abra Alalaya es un paso transversal elevado (un abra o puerto de montaña) ubicado en la región de Apurímac, Perú"},
+    { img: "https://i.imgur.com/7ri04Vx.jpg", name: "Centro Poblado Santiago de Yanama", coords: [-13.973280, -73.427165], altitude: "3966 msnm", desc: "Ubicado en una zona alta y fría, Yanama destaca por su jardin de estudios cerca a la pista principal. Desde aquí se observan los nevados que rodean el sur del valle de nuestra ruta."},
+    { img: "https://i.imgur.com/9pLIIpp.jpg", name: "Centro Poblado Ichurco", coords: [-13.999512, -73.437810], altitude: "3910 msnm", desc: "Comunidad tradicional donde las viviendas conservan techos de teja y adobe, observando un amplio paisaje de como son nuestros andes, en un pequeño centro poblado."},
+    { img: "https://i.imgur.com/lzgEah7.jpg", name: "Centro Poblado Villa Santa Rosa", coords: [-14.029265, -73.466575], altitude: "3874 msnm", desc: "Pueblo tranquilo rodeado de campos de formas circulares de piedras hechas por los pobladores para el cuidado de su ganado. Es paso obligado antes de ingresar a las zonas más altas del camino hacia Pampachiri."},
+    { img: "https://i.imgur.com/6xSzFNV.jpg", name: "Comunidad Pulperia", coords: [-14.057534, -73.474563], altitude: "3907 msnm", desc: "Una comunidad ubicada entre cerros suaves y caminos de herradura. Desde aquí se empieza a percibir el cambio del paisaje hacia las formaciones características de Pampachiri."},
+    { img: "https://i.imgur.com/y9nVZUk.jpg", name: "Centro Poblado Tambo", coords: [-14.141805, -73.531369], altitude: "3723 msnm", desc: "Antiguo punto de descanso (“tambo” en quechua) de los viajeros incas. Actualmente es un pueblo con caracteristicas de un poco mas de fauna como arboles y tambien corrales hechas por rocas para el cuidado de sus ganados y un punto previo al descenso hacia Pampachiri."},
+    { img: "https://i.imgur.com/Dllymk9.jpg", name: "Pampachiri (Plaza de Armas)", coords: [-14.186878, -73.544332], altitude: "≈3400 msnm", desc: "Destino final: un paisaje unico de ver, en medio de formaciones de tipo quebrada, asi mismo la fauna no es tan escasa como en las alturas, inicio de nuestro recorrido turistico." }
+  ];
+
+  const pampachiriExtras = [
+    { imgs: ["https://i.imgur.com/MSiX3lR.jpg", "https://i.imgur.com/iyInmdn.jpg", "https://i.imgur.com/E6XON29.jpg"], name: "Baños Termales de Larcay", coords: [-14.160923, -73.567717], desc: "Aguas naturales de origen volcánico, conocidas por sus propiedades relajantes y medicinales. Un lugar ideal para descansar rodeado de paisajes andinos." },
+    { imgs: ["https://i.imgur.com/UoUfbij.jpg", "https://i.imgur.com/ObWmnuk.jpg", "https://i.imgur.com/a7yBO3K.jpg"], name: "Ruinas de Chicha Qasa", coords: [-14.224060, -73.523454], desc: "Antiguo sitio arqueológico preincaico con restos de terrazas y muros de piedra, testimonio de las primeras civilizaciones de la zona."},
+    { imgs: ["https://i.imgur.com/U1csmWB.jpg", "https://i.imgur.com/mWs6mdh.jpg", "https://i.imgur.com/XIzGEfE.jpg"], name: "Aldea de los Pitufos", coords: [-14.254834, -73.480620], desc: "Formaciones rocosas naturales con forma de casitas, creadas por la erosión. Un atractivo único y muy visitado para tomar fotos." },
+    { imgs: ["https://i.imgur.com/9siSyQa.jpg", "https://i.imgur.com/ABucfWg.jpg", "https://i.imgur.com/FV3BlKg.jpg"], name: "Bosque de Piedras", coords: [-14.283080, -73.451596], desc: "Impresionante conjunto de rocas que asemejan figuras humanas y animales. Es el símbolo natural más famoso de Pampachiri." }
+  ];
+
+  // Velocidad de animación: número de puntos de la ruta que avanza en cada 'tick' (ajusta si quieres más rápido)
+  const STEP = 4;
+  const TICK_MS = 80; // ms entre ticks
+  const PAUSE_MS = 10000; // pausa en cada parada en ms (5s)
+
+  // -----------------------------
+  // === MAPA y RUTA real (OSRM via Leaflet Routing Machine)
+  // -----------------------------
+  // === MAPA CON VISTA SATELITAL (ESRI) ===
+  const satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: '© Esri, Maxar, Earthstar Geographics' }
+  );
+
+  const streets = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { attribution: '© OpenStreetMap contributors' }
+  );
+
+  // Crea el mapa con vista satelital por defecto
+  const map = L.map('map', {
+    center: [-13.45, -73.55],
+    zoom: 9,
+    layers: [satellite]
+  });
+
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 500);
+
+  // Control para cambiar entre vistas
+  const baseMaps = {
+    "🛰️ Satélite": satellite,
+    "🗺️ Calles": streets
+  };
+  L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+
+  // Convert locations to L.latLng
+  const waypoints = locations.map(l => L.latLng(l.coords[0], l.coords[1]));
+
+  // Create routing control but avoid the default markers (we create our own to style them)
+const routingControl = L.Routing.control({
+  waypoints: waypoints,
+  router: new L.Routing.OSRMv1({
+    serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1'
+  }),
+  routeWhileDragging: false,
+  showAlternatives: false,
+  addWaypoints: false,
+  draggableWaypoints: false,
+  fitSelectedRoutes: true,
+  lineOptions: { styles: [{ color: '#3388ff', weight: 6, opacity: 0.9 }] },
+  createMarker: function() { return null; }
+}).addTo(map);
+
+  // We'll store:
+  let routeCoords = [];      // array of [lat, lng] along the routed polyline
+  let stopIndices = [];      // indices in routeCoords that correspond to stops
+  let busMarker = null;
+  let animInterval = null;
+  let animIndex = 0;
+  let nextStopPointer = 0;
+  let isPaused = false;
+
+  // Create sidebar items and custom markers for each main stop
+  const markers = [];
+  const list = document.getElementById('locationList');
+  locations.forEach((loc, i) => {
+    // sidebar list
+    const li = document.createElement('li');
+    li.className = 'location-item';
+    li.dataset.index = i;
+    li.innerHTML = `<span class="location-number">${i+1}</span><strong>${loc.name}</strong><div style="font-size:0.9rem;color:#666;margin-top:6px;">${loc.desc}</div>`;
+    li.addEventListener('click', () => {
+      map.setView(loc.coords, 12);
+      markers[i].openPopup();
+      highlight(i);
+    });
+    list.appendChild(li);
+  });
+
+  // Add extras markers (puntos turísticos)
+pampachiriExtras.forEach((extra, index) => {
+  const marker = L.marker(extra.coords, {
+    icon: L.divIcon({ className: '', html: `<div style="font-size:20px;">📍</div>`, iconSize: [24, 24] })
+  }).addTo(map);
+
+  const carouselId = `carousel-${index}`;
+
+  const imgsHTML = extra.imgs.map((src, i) =>
+    `<img src="${src}" class="${i === 0 ? 'active' : ''}" />`
+  ).join('');
+
+  const popupHTML = `
+    <div style="min-width:240px">
+      <div class="carousel" id="${carouselId}">
+        ${imgsHTML}
+        <button class="prev" onclick="prevImage('${carouselId}')"></button>
+        <button class="next" onclick="nextImage('${carouselId}')"></button>
+      </div>
+      <div class="popup-content">
+        <div class="popup-title">${extra.name}</div>
+        <div class="popup-desc">${extra.desc}</div>
+      </div>
+    </div>
+  `;
+
+  marker.bindPopup(popupHTML);
+
+  // Cuando el popup se abre, activa el cambio automático cada 3 segundos
+  marker.on('popupopen', () => {
+    startAutoSlide(carouselId);
+  });
+});
+
+  // When routingControl finds a route, we extract the route coordinates (polyline)
+  routingControl.on('routesfound', function(e) {
+    const route = e.routes[0];
+    // route.coordinates is an array of LatLng objects (Leaflet)
+    routeCoords = route.coordinates.map(c => [c.lat, c.lng]);
+
+    // create custom markers for each main stop (so popups/images are ours)
+    locations.forEach((loc, i) => {
+      // marker visual style (numbered circle)
+      const iconHtml = `<div style="
+          background: linear-gradient(135deg,#667eea,#764ba2);
+          color:white;width:36px;height:36px;border-radius:50%;
+          display:flex;align-items:center;justify-content:center;font-weight:bold;
+          border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);
+        ">${i+1}</div>`;
+      const icon = L.divIcon({ html: iconHtml, className: 'custom-marker', iconSize: [36,36], iconAnchor: [18,36] });
+      const m = L.marker(loc.coords, { icon }).addTo(map);
+
+      // popup with empty image src for you to fill later
+      m.bindPopup(`
+        <div style="min-width:260px">
+          <img src="${loc.img}" alt="${loc.name}" style="width:100%;height:160px;object-fit:cover;border-radius:8px 8px 0 0;">
+          <div class="popup-content">
+            <div class="popup-title">📍 ${loc.name}</div>
+            <div class="popup-desc">${loc.desc}</div>
+            <div class="popup-alt">⛰️ ${loc.altitude || ''}</div>
+          </div>
+        </div>
+      `);
+
+      markers.push(m);
+    });
+
+    // compute stopIndices: nearest route index for each waypoint
+    stopIndices = locations.map(loc => {
+      const waypoint = L.latLng(loc.coords[0], loc.coords[1]);
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < routeCoords.length; i++) {
+        const p = L.latLng(routeCoords[i][0], routeCoords[i][1]);
+        const d = p.distanceTo(waypoint);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      return bestIdx;
+    });
+
+    // center map to route
+    const bounds = L.latLngBounds(routeCoords.map(r => L.latLng(r[0], r[1])));
+    map.fitBounds(bounds.pad(0.6));
+  });
+
+  // helper highlight in sidebar
+  function highlight(i) {
+    document.querySelectorAll('.location-item').forEach(x => x.classList.remove('active'));
+    document.querySelector(`[data-index="${i}"]`)?.classList.add('active');
+  }
+
+  // --- ANIMACIÓN DEL BUS ---
+  function createBusIcon() {
+    return L.divIcon({
+      className: 'bus-icon',
+      html: `<div style="font-size:28px; animation: bounce 0.6s infinite alternate;">🚌</div>`,
+      iconSize: [34,34],
+      iconAnchor: [17,17]
+    });
+  }
+
+  function startAnimation() {
+    if (!routeCoords || routeCoords.length === 0) {
+      alert('Aún no se ha calculado la ruta. Espera unos segundos y vuelve a intentarlo.');
+      return;
+    }
+    if (animInterval) return; // ya animando
+
+    // reset state
+    animIndex = 0;
+    nextStopPointer = 0;
+    isPaused = false;
+    highlight(0);
+
+    if (!busMarker) {
+      busMarker = L.marker(routeCoords[0], { icon: createBusIcon(), zIndexOffset: 1000 }).addTo(map);
+    } else {
+      busMarker.setLatLng(routeCoords[0]);
+    }
+
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+
+    animInterval = setInterval(() => {
+      if (isPaused) return;
+
+      // move forward
+      animIndex = Math.min(animIndex + STEP, routeCoords.length - 1);
+      const pos = routeCoords[animIndex];
+      busMarker.setLatLng(pos);
+      map.panTo(pos, { animate: true, duration: 0.3 });
+
+      // check if we've reached the next stop index (or passed it)
+      if (nextStopPointer < stopIndices.length && animIndex >= stopIndices[nextStopPointer]) {
+        // pause and open popup of that stop
+        isPaused = true;
+        const stopIdx = nextStopPointer;
+        // open popup for that marker and highlight entry in list
+        markers[stopIdx].openPopup();
+        highlight(stopIdx);
+
+        // wait PAUSE_MS then resume
+        setTimeout(() => {
+          nextStopPointer++;
+          isPaused = false;
+        }, PAUSE_MS);
+      }
+
+      // finish
+      if (animIndex >= routeCoords.length - 1) {
+        clearInterval(animInterval);
+        animInterval = null;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        // Open Pampachiri popup and show tourist popups
+        const lastIdx = locations.length - 1;
+        markers[lastIdx].openPopup();
+        highlight(lastIdx);
+        showPampachiriExtras();
+      }
+    }, TICK_MS);
+  }
+
+  function stopAnimation() {
+    if (animInterval) {
+      clearInterval(animInterval);
+      animInterval = null;
+    }
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+    isPaused = false;
+  }
+
+  // show the extras as popups around Pampachiri when finished
+  function showPampachiriExtras(){
+    pampachiriExtras.forEach((e, i) => {
+      setTimeout(() => {
+        L.popup({ maxWidth: 280 })
+          .setLatLng(e.coords)
+          .setContent(`<div style="min-width:220px"><div class="popup-title">${e.name}</div><div class="popup-desc">${e.desc}</div></div>`)
+          .openOn(map);
+      }, 700 * i);
+    });
+  }
+
+  // wire buttons
+  document.getElementById('startBtn').addEventListener('click', startAnimation);
+  document.getElementById('stopBtn').addEventListener('click', stopAnimation);
+
+  // cleanup when user navigates away (optional)
+  window.addEventListener('beforeunload', () => { if (animInterval) clearInterval(animInterval); });
+
+function nextImage(id) {
+  const carousel = document.getElementById(id);
+  if (!carousel) return;
+  const imgs = carousel.querySelectorAll('img');
+  let current = Array.from(imgs).findIndex(img => img.classList.contains('active'));
+  imgs[current].classList.remove('active');
+  const next = (current + 1) % imgs.length;
+  imgs[next].classList.add('active');
+}
+
+function prevImage(id) {
+  const carousel = document.getElementById(id);
+  if (!carousel) return;
+  const imgs = carousel.querySelectorAll('img');
+  let current = Array.from(imgs).findIndex(img => img.classList.contains('active'));
+  imgs[current].classList.remove('active');
+  const prev = (current - 1 + imgs.length) % imgs.length;
+  imgs[prev].classList.add('active');
+}
+
+// --- Cambio automático de imágenes ---
+const carouselIntervals = {};
+
+function startAutoSlide(id) {
+  // Detenemos cualquier intervalo anterior
+  if (carouselIntervals[id]) {
+    clearInterval(carouselIntervals[id]);
+  }
+
+  carouselIntervals[id] = setInterval(() => {
+    nextImage(id);
+  }, 3000); // cada 3 segundos
+}
+
+// Si el popup se cierra, detenemos el intervalo
+map.on('popupclose', (e) => {
+  const popupId = e.popup.getElement()?.querySelector('.carousel')?.id;
+  if (popupId && carouselIntervals[popupId]) {
+    clearInterval(carouselIntervals[popupId]);
+    delete carouselIntervals[popupId];
+  }
+});
+  </script>
+</body>
+</html>
